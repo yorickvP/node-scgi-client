@@ -1,0 +1,18 @@
+{
+  "author": "Yorick",
+  "name": "scgi-client",
+  "description": "SCGI (Simple Common Gateway Interface) Client",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/yorickvP/node-scgi-client.git"
+  },
+  "main": "index.js",
+  "engines": {
+    "node": "0.6.x"
+  },
+  "dependencies": {
+    "cgi": "0.0.8"
+  },
+  "devDependencies": {}
+}
