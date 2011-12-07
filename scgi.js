@@ -1,10 +1,39 @@
-/* https://github.com/claudioc/node-scgi/blob/master/scgi.js */
+/*jshint asi:true laxbreak:true */
+/* requires node-protoparse (npm install protoparse).
+ * or just install this using npm install scgi-server
+----------------------------------------------------------------------------
+Copyright (c) YorickvP (contact me on github if you want)
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * ---------------------------------------------------------------------------*/
+/* originally based upon https://github.com/claudioc/node-scgi/blob/master/scgi.js */
 var urlparser = require('url')
 ,       net = require('net')
 , CGIParser = require('cgi/parser')
 
-module.exports = function makeSCGIRequest() {
-    var connect_params = [].slice.call(arguments)
+var SERVER_SOFTWARE = "Node/"+process.version;
+var SERVER_PROTOCOL = "HTTP/1.1";
+var GATEWAY_INTERFACE = "CGI/1.1";
+
+// every argument you pass to this function will be passed to net.connect
+module.exports = function makeSCGIRequest(port, host) {
+    var connect_params = ('number' == typeof port) ? [port, host] : [port]
+    var opts = arguments[('number' == typeof port) ? ('string' == typeof host) ? 2 : 1 : 0] || {}
+    if (!opts.mountPoint) opts.mountPoint = ''
+    if (!opts.serverName) opts.serverName = 'unknown'
+    if (!opts.serverPort) opts.serverPort = 80
+    if (!opts.documentRoot) opts.documentRoot = ''
+    if (!opts.overrides) opts.overrides = {}
     // I could make this a connect-layer, but that would be slow
     // as it would have to query the scgi process if the page can be served
     return function SCGIRequest(req, res) {
@@ -12,21 +41,39 @@ module.exports = function makeSCGIRequest() {
         var resParsed = urlparser.parse(req.url)
         // prepare some headers to send to the scgi server
         var h = {
-            "CONTENT_LENGTH"  : headers['content-length'] || "0",
             "SCGI"            : "1",
+            "CONTENT_LENGTH"  : (headers['content-length'] || "0") + "",
+            "GATEWAY_INTERFACE": GATEWAY_INTERFACE,
+            "PATH_INFO"       : resParsed.pathname.slice(opts.mountPoint.length),
+            "PATH_TRANSLATED" : opts.documentRoot + resParsed.pathname.slice(opts.mountPoint.length),
+            "QUERY_STRING"    : resParsed.query || "",
+            "REMOTE_ADDR"     : req.connection.remoteAddress || "",
+            "REMOTE_NAME"     : req.connection.remoteAddress || "", /* If the hostname is not available for
+               performance reasons or otherwise, the server MAY substitute the REMOTE_ADDR value. */
             "REQUEST_METHOD"  : req.method,
             "REQUEST_URI"     : resParsed.href,
-            "SCRIPT_NAME"     : resParsed.pathname,
-            "QUERY_STRING"    : (resParsed.query || '') }
+            "SCRIPT_NAME"     : opts.mountPoint,
+            "SERVER_NAME"     : opts.serverName,
+            "SERVER_PORT"     : opts.serverPort + "",
+            "SERVER_PROTOCOL" : SERVER_PROTOCOL,
+            "SERVER_SOFTWARE" : SERVER_SOFTWARE }
+
+        // somehow breaks weave
+        //if (headers['authorization']) {
+        //    h['AUTH_TYPE'] = headers.authorization.split(' ')[0]
+        //    if (h['AUTH_TYPE'].toLowerCase() == 'basic')
+        //        h['REMOTE_USER'] = Buffer(headers.authorization.split(' ')[1], 'base64').toString().split(':')[0] }
 
         if (headers['content-type'])
             h['CONTENT_TYPE'] = headers['content-type']
-        if (headers['authorization'])
-            h['AUTH_TYPE'] = headers.authorization.split(' ')[0]
 
         // add the http request headers
         Object.keys(headers).forEach(function(k) {
-            h['HTTP_' + k.replace('-', '_').toUpperCase()] = headers[k] })
+            h['HTTP_' + k.replace('-', '_').toUpperCase()] = headers[k]+"" })
+        
+        // add the overrides from opts
+        Object.keys(opts.overrides).forEach(function(k) {
+            h[k] = opts.overrides[k]+"" })
 
         var message = Object.keys(h).map(function(headername) {
             // headername + "\0" + data + "\0"
