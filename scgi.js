@@ -92,10 +92,20 @@ module.exports = function makeSCGIRequest(port, host) {
 
         // connect and send stuff
         var stream = net.connect.apply(net, connect_params)
+
+        // very evil bug :/ need to pause the stream and buffer some data
+        var post_buffer = []
+        post_buffer.ondata = post_buffer.push.bind(post_buffer)
+        req.on('data', post_buffer.ondata)
+        req.pause()
         stream.on('connect', function() {  
             message.forEach(function(x) {
-                stream.write(x)})  
+                stream.write(x)})
             // pipe the request body to the scgi server
+            req.removeListener('data', post_buffer.ondata)
+            post_buffer.forEach(function(x) {
+                stream.write(x)})
+            req.resume()
             req.pipe(stream) })
 
 
