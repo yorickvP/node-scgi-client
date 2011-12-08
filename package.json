@@ -9,7 +9,7 @@
   },
   "main": "scgi.js",
   "engines": {
-    "node": "0.6.x"
+    "node": "*"
   },
   "dependencies": {
     "cgi": "0.0.8"
