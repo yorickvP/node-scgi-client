@@ -88,12 +88,13 @@ module.exports = function makeSCGIRequest(port, host) {
           , tl = message.reduce(function(p, c) { return p + c.length }, 0)
         // put the message length before the message, and add a ,
         message.unshift(new Buffer(tl + ":"))
-        message.push(",")
+        message.push(new Buffer(","))
 
         // connect and send stuff
         var stream = net.connect.apply(net, connect_params)
-        stream.on('connect', function() {    
-            message.forEach(stream.write.bind(stream))
+        stream.on('connect', function() {  
+            message.forEach(function(x) {
+                stream.write(x)})  
             // pipe the request body to the scgi server
             req.pipe(stream) })
 
