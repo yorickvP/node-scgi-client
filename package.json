@@ -2,7 +2,7 @@
   "author": "Yorick",
   "name": "scgi-client",
   "description": "SCGI (Simple Common Gateway Interface) Client",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "repository": {
     "type": "git",
     "url": "git://github.com/yorickvP/node-scgi-client.git"
